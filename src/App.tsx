@@ -16,16 +16,45 @@ import WorkflowBuilder from './components/WorkflowBuilder';
 import MemoryEngine from './components/MemoryEngine';
 import { ExecutionCenter, LocalMode, IntegrationsMarket, SettingsPanel } from './components/SecondaryViews';
 import ChatWorkspace from './components/ChatWorkspace';
+import CopilotWorkspace from './components/CopilotWorkspace';
 
 import { 
   Home, Bot, Network, GitMerge, Brain, Eye, Cpu, Link, MessageSquare, Settings, 
-  Bell, Search, HelpCircle, AlertTriangle, Menu, X, Check, Globe, Users 
+  Bell, Search, HelpCircle, AlertTriangle, Menu, X, Check, Globe, Users, Sparkles 
 } from 'lucide-react';
 
 export default function App() {
   const [hasStarted, setHasStarted] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [apiConnected, setApiConnected] = useState(false);
+  const [openaiConnected, setOpenaiConnected] = useState(false);
+  const [publicKeyStatus, setPublicKeyStatus] = useState(false);
+  const [publicKeyFragment, setPublicKeyFragment] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          if (data.apiConnected) {
+            setApiConnected(true);
+          }
+          if (data.openaiConnected) {
+            setOpenaiConnected(true);
+          }
+          if (data.publicKeyStatus) {
+            setPublicKeyStatus(true);
+          }
+          if (data.publicKeyFragment) {
+            setPublicKeyFragment(data.publicKeyFragment);
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('Backend API key check status:', err);
+      });
+  }, []);
 
   // Core App states
   const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS);
@@ -262,6 +291,7 @@ export default function App() {
         tokensUsed: 490
       };
       setActivities(prev => [sysAct, ...prev]);
+      setIsGenerating(false);
 
     } catch (error) {
       console.error(error);
@@ -367,6 +397,7 @@ export default function App() {
     { id: 'executions', label: 'Real-time Streams', icon: Eye },
     { id: 'local-ai', label: 'Ollama Node', icon: Cpu },
     { id: 'integrations', label: 'Integrations Hub', icon: Link },
+    { id: 'copilot', label: 'Copilot Companion', icon: Sparkles },
     { id: 'settings', label: 'OS Settings', icon: Settings }
   ];
 
@@ -483,6 +514,8 @@ export default function App() {
               onTriggerMockWorkflow={triggerMockWorkflow}
               isMockRunning={isMockRunning}
               localAiMode={localAiMode}
+              apiConnected={apiConnected}
+              openaiConnected={openaiConnected}
             />
           )}
 
@@ -561,9 +594,34 @@ export default function App() {
             />
           )}
 
+          {/* GitHub Copilot Developer Hub */}
+          {activeTab === 'copilot' && (
+            <CopilotWorkspace 
+              apiConnected={apiConnected}
+              openaiConnected={openaiConnected}
+              onAddTelemetryLog={(message, type = 'info') => {
+                const act = {
+                  id: 'act-copilot-' + Date.now(),
+                  timestamp: new Date().toISOString(),
+                  type,
+                  message,
+                  agentName: 'GitHub Copilot',
+                  latency: Math.floor(Math.random() * 80) + 12,
+                  tokensUsed: Math.floor(Math.random() * 400) + 90
+                };
+                setActivities(prev => [act, ...prev]);
+              }}
+            />
+          )}
+
           {/* general cluster settings */}
           {activeTab === 'settings' && (
-            <SettingsPanel />
+            <SettingsPanel 
+              apiConnected={apiConnected} 
+              openaiConnected={openaiConnected}
+              publicKeyStatus={publicKeyStatus}
+              publicKeyFragment={publicKeyFragment}
+            />
           )}
 
         </main>

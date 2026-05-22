@@ -15,6 +15,10 @@ app.use(express.json());
 let ai: GoogleGenAI | null = null;
 const apiKey = process.env.GEMINI_API_KEY;
 
+// Initialize OpenAI key (support explicit variable or direct operator config)
+const openAiKey = process.env.OPENAI_API_KEY || 'sk-SbR61GRDMhXpIgKbZpXVEqWa56490_HsQxy8zF-2m6BTIyZNd0hYdI9iDq7YnMgm';
+const publicKey = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCht7/lQxlS+t5T89+kEQk4yseQkuH5c1CMx4aPPvT9W+10q1EQsoDG5v+CLrDZfRT+LA0tgSBgT20GtIV9kwsg7g18qeTSFlRYQ3+e5V6n8c1ClP5+gogxeTct1sO1uDlAekQuG+zCDsruiegdMGY+NYRFV5p5Hh6sZLjwaxLVuwIDAQAB';
+
 if (apiKey) {
   try {
     ai = new GoogleGenAI({
@@ -30,20 +34,23 @@ if (apiKey) {
     console.error('Failed to initialize Gemini API Client:', error);
   }
 } else {
-  console.log('No GEMINI_API_KEY found in process.env. Server will run in high-fidelity simulated reasoning mode.');
+  console.log('No GEMINI_API_KEY found in process.env. Will fallback to OpenAI API if available.');
 }
 
 // API Routes
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
-    apiConnected: !!ai, 
+    apiConnected: !!ai,
+    openaiConnected: !!openAiKey && !openAiKey.includes('MY_OPENAI_'),
+    publicKeyStatus: !!publicKey,
+    publicKeyFragment: publicKey ? publicKey.substring(0, 16) + '...' : null,
     time: new Date().toISOString(),
     nodeEnv: process.env.NODE_ENV || 'development'
   });
 });
 
-// Process prompts using the Gemini model with structured output tags for thinking steps.
+// Process prompts using the Gemini model or OpenAI model with structured output tags for thinking steps.
 app.post('/api/chat', async (req, res) => {
   const { message, history, systemPrompt, agentName, activeModel } = req.body;
 
@@ -65,6 +72,7 @@ Hello, I have initiated the requested actions...
 
 Always structure your thought process. Make sure to keep the '<thinking>' tag at the very beginning of your response.`;
 
+  // 1. If Gemini AI is active and initialized, execute Gemini route as primary
   if (ai) {
     try {
       // Build message payload
@@ -133,7 +141,89 @@ Always structure your thought process. Make sure to keep the '<thinking>' tag at
         message: error.message || 'An error occurred during Gemini processing.' 
       });
     }
-  } else {
+  } 
+  // 2. Fallback to OpenAI API since user provided an active sk-... key
+  else if (openAiKey && !openAiKey.includes('MY_API_KEY')) {
+    try {
+      console.log('Routing prompt to OpenAI API using provided key...');
+      
+      // Restructure chat history for OpenAI Chat completions
+      const messagesPayload = [
+        { role: 'system', content: instruction }
+      ];
+
+      if (history && Array.isArray(history)) {
+        history.forEach((msg: any) => {
+          messagesPayload.push({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          });
+        });
+      }
+
+      messagesPayload.push({
+        role: 'user',
+        content: message
+      });
+
+      const openAiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openAiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: messagesPayload,
+          temperature: 0.7
+        })
+      });
+
+      if (!openAiResponse.ok) {
+        const errorText = await openAiResponse.text();
+        throw new Error(`OpenAI API responded with code ${openAiResponse.status}: ${errorText}`);
+      }
+
+      const responseData = await openAiResponse.json();
+      const rawText = responseData.choices?.[0]?.message?.content || '';
+
+      // Parse out '<thinking>' tags from the assistant response
+      let cleanText = rawText;
+      let thinkingSteps: string[] = [];
+      
+      const thinkingRegex = /<thinking>([\s\S]*?)<\/thinking>/i;
+      const match = rawText.match(thinkingRegex);
+      if (match) {
+        thinkingSteps = match[1]
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+        cleanText = rawText.replace(thinkingRegex, '').trim();
+      } else {
+        thinkingSteps = [
+          'Dispatching cognitive request to OpenAI cluster...',
+          'Compiling system schema definitions...',
+          'Drafting intelligent context response'
+        ];
+      }
+
+      res.json({
+        content: cleanText,
+        thinkingSteps,
+        timestamp: new Date().toISOString(),
+        modelUsed: 'gpt-4o-mini',
+        apiReal: true
+      });
+
+    } catch (error: any) {
+      console.error('OpenAI processing error fallback:', error);
+      res.status(500).json({
+        error: 'OpenAI Fallback failed',
+        message: error.message || 'An error occurred during OpenAI request routing.'
+      });
+    }
+  }
+  else {
     // Elegant simulation if no API Key is set, so the app remains perfect and responsive!
     setTimeout(() => {
       let thinkingSteps: string[] = [

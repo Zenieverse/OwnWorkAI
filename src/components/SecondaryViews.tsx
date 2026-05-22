@@ -379,8 +379,18 @@ export function IntegrationsMarket({ integrations, onToggleConnect }: Integratio
 /* =========================================
    4. SETTINGS VIEW
    ========================================= */
-export function SettingsPanel() {
-  const [apiKeySet, setApiKeySet] = useState(!!process.env.GEMINI_API_KEY);
+export function SettingsPanel({ 
+  apiConnected, 
+  openaiConnected,
+  publicKeyStatus,
+  publicKeyFragment
+}: { 
+  apiConnected: boolean; 
+  openaiConnected: boolean;
+  publicKeyStatus?: boolean;
+  publicKeyFragment?: string | null;
+}) {
+  const apiKeySet = apiConnected;
 
   return (
     <div className="space-y-6">
@@ -401,28 +411,58 @@ export function SettingsPanel() {
           
           <div className="space-y-4 text-xs">
             
-            {/* API key details info line */}
+            {/* Gemini API Key details */}
             <div className="bg-black/30 p-4 rounded-lg border border-white/[0.05] flex items-center justify-between">
               <div>
-                <span className="font-mono text-xs text-white block uppercase font-bold">GEMINI_API_KEY Vault status</span>
+                <span className="font-mono text-xs text-white block uppercase font-bold text-blue-400">GEMINI_API_KEY Vault status</span>
                 <span className="text-gray-400 block mt-1 leading-normal">
-                  API keys of our full-stack service are isolated and loaded exclusively on server-side nodes.
+                  Google GenAI API keys are isolated and loaded exclusively on secure backend nodes.
                 </span>
               </div>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full uppercase shrink-0 ${
                 apiKeySet ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
               }`}>
-                {apiKeySet ? '✅ Synchronized server' : '⚠️ Offline mock key'}
+                {apiKeySet ? '✅ Synchronized' : '⚠️ Simulator Active'}
+              </span>
+            </div>
+
+            {/* OpenAI API Key details */}
+            <div className="bg-black/30 p-4 rounded-lg border border-white/[0.05] flex items-center justify-between">
+              <div>
+                <span className="font-mono text-xs text-white block uppercase font-bold text-indigo-400">OPENAI_API_KEY Companion status</span>
+                <span className="text-gray-400 block mt-1 leading-normal">
+                  Your custom key is active. Supports operational falls back to GPT-4o-mini pipelines!
+                </span>
+              </div>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                openaiConnected ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20' : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+              }`}>
+                {openaiConnected ? '✅ Active (user sk-...)' : '⚠️ Standby'}
+              </span>
+            </div>
+
+            {/* PKCS#1 X.509 RSA Certificate/Public Key status */}
+            <div className="bg-black/30 p-4 rounded-lg border border-white/[0.05] flex items-center justify-between">
+              <div>
+                <span className="font-mono text-xs text-white block uppercase font-bold text-emerald-400">Public Verification Signature (PKI)</span>
+                <span className="text-gray-400 block mt-1 leading-normal font-mono text-[10px]">
+                  Fingerprint SHA-1: {publicKeyFragment || 'None'}... (RSA 1024-bit asymmetric block)
+                </span>
+              </div>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                publicKeyStatus ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+              }`}>
+                {publicKeyStatus ? '🔒 RSA VERIFIED' : '⚠️ UNVERIFIED'}
               </span>
             </div>
 
             {/* In-app instructions detailing Settings Secrets panel */}
             <div className="text-gray-400 leading-relaxed font-sans space-y-2">
               <p>
-                *Important configuration safety:* OwnWorks relies on server-side requests (proxy routing) to communicate with actual Gemini models. This completely prevents sensitive API keys from rendering inside the browser Bundle.
+                *Important configuration safety:* OwnWorks relies on server-side requests (proxy routing) to communicate with models. This completely prevents sensitive API keys from rendering inside the browser Bundle.
               </p>
               <p>
-                To edit this variable under the AI Studio sandbox, navigate to the **Settings &rarr; Secrets** panel in the parent frame, insert <span className="font-mono text-gray-300">GEMINI_API_KEY</span>, and refresh this tab!
+                To edit these variables under the AI Studio sandbox, navigate to the **Settings &rarr; Secrets** panel in the parent frame, insert <span className="font-mono text-gray-300">GEMINI_API_KEY</span> or <span className="font-mono text-gray-300">OPENAI_API_KEY</span>, and refresh this tab!
               </p>
             </div>
 

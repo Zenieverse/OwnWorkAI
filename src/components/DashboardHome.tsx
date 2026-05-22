@@ -10,6 +10,8 @@ interface DashboardHomeProps {
   onTriggerMockWorkflow: () => void;
   isMockRunning: boolean;
   localAiMode: boolean;
+  apiConnected: boolean;
+  openaiConnected: boolean;
 }
 
 export default function DashboardHome({
@@ -19,7 +21,9 @@ export default function DashboardHome({
   activities,
   onTriggerMockWorkflow,
   isMockRunning,
-  localAiMode
+  localAiMode,
+  apiConnected,
+  openaiConnected
 }: DashboardHomeProps) {
   
   // Real-time time display
@@ -258,8 +262,19 @@ export default function DashboardHome({
               <div className="text-gray-500"># Direct curl sandbox simulation:</div>
               <div className="text-blue-300">curl -X POST /api/chat \</div>
               <div className="text-blue-300">{"  -d '{\"message\": \"deploy ScoutPro\"}'"}</div>
-              <div className="mt-4 pt-2 border-t border-white/[0.05] text-center text-gray-500 text-[10px]">
-                API key status: {process.env.GEMINI_API_KEY ? '✅ Configured server-side' : '⚠️ Cloud Run offline mock active'}
+              <div className="mt-4 pt-2 border-t border-white/[0.05] text-left text-gray-400 text-[10px] space-y-1 font-mono">
+                <div className="flex justify-between items-center">
+                  <span>Gemini Vault:</span>
+                  <span className={apiConnected ? 'text-emerald-400 font-bold' : 'text-amber-500'}>
+                    {apiConnected ? '● Online Proxy' : '○ Local Mock Direct'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>OpenAI Hub (sk-...):</span>
+                  <span className={openaiConnected ? 'text-emerald-400 font-bold' : 'text-amber-500'}>
+                    {openaiConnected ? '● Live Co-Pilot' : '○ Standby Mock'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
