@@ -178,21 +178,38 @@ export default function App() {
   // Workflow builder simulation test
   const handleRunWorkflow = (workflowId: string) => {
     setIsExecutingWorkflowId(workflowId);
+    
+    const activeWf = workflows.find(w => w.id === workflowId) || workflows[0];
+    const nodeCount = activeWf.nodes.length;
+
     setWorkflowOutputs([
       '>> COMPILING VISUAL PIPELINE GRAPH IN SECURE SANDBOX...',
       '>> CHECKING INBOUND WEBHOOK INTEGRITY POOLS... SUCCESS',
-      '>> DETECTED 4 SECURE PIPELINE BLOCKS.',
+      `>> DETECTED ${nodeCount} SECURE LOGIC PIPELINE BLOCKS.`,
     ]);
 
-    const outputs = [
-      '>> TRIGGER DETECTED: Manual UI execution payload.',
-      '>> DISPATCHING PAYLOAD VECTORS TO SCOUTPRO DEPLOYMENT NODE...',
-      '>> ScoutPro (Inference latency 450ms): Compiling web query indices.',
-      '>> DISPATCHING REPLICATED OBJECTIVES TO COPYSCRIBE...',
-      '>> CopyScribe (Inference latency 840ms): Generating conversion blocks.',
-      '>> PIPELINE RESOLVED: Outgoing parameters dispatched to Gmail delivery vault.',
-      '>> OUTCOME CODE: 200 SUCCESS (Loop finished safely)'
-    ];
+    // Build outputs dynamically based on the actual custom nodes
+    const outputs: string[] = [];
+    activeWf.nodes.forEach((n, idx) => {
+      outputs.push(`>> [STEP ${idx + 1}/${nodeCount}] ENTERING NODE: "${n.label}" (ID: ${n.id}, TYPE: ${n.type.toUpperCase()})`);
+      if (n.config && Object.keys(n.config).length > 0) {
+        outputs.push(`>> ACTIVE METADATA CONFIG: ${JSON.stringify(n.config)}`);
+      }
+      
+      if (n.type === 'trigger' || n.type === 'webhook' || n.type === 'scheduler') {
+        outputs.push(`>> LISTENER LOG: Secure webhook inbound trigger registered.`);
+      } else if (n.type === 'agent') {
+        outputs.push(`>> INFERENCE SEQUENCE: Triggering cognitive agent LLM core pipeline...`);
+      } else if (n.type === 'email') {
+        outputs.push(`>> SMTP HANDSHAKE: Establishing TLS dispatch matrix...`);
+      } else {
+        outputs.push(`>> LOGIC BLOCK: Processing sandbox execution frame...`);
+      }
+      outputs.push(`>> STATUS Code: SUCCESS (Computed in ${Math.round(Math.random() * 200 + 100)}ms)`);
+    });
+
+    outputs.push('>> PIPELINE RESOLVED: All sequential nodes executed and exited safely.');
+    outputs.push('>> OUTCOME REASON: 200 OK (Virtual loops validated)');
 
     let logIdx = 0;
     const interval = setInterval(() => {
@@ -208,14 +225,14 @@ export default function App() {
           id: 'wf-exec-complete-' + Date.now(),
           timestamp: new Date().toISOString(),
           type: 'success',
-          message: 'Visual workflow flowchart simulation resolved code loops perfectly.',
+          message: `Visual sandbox workflow "${activeWf.name}" resolved ${nodeCount} code blocks perfectly.`,
           agentName: 'Workflow Engine',
           latency: 3500,
           tokensUsed: 4900
         };
         setActivities(prev => [completeEvt, ...prev]);
       }
-    }, 1000);
+    }, 850);
   };
 
   // Chat message submission using real-side proxies or demonstration routines
@@ -369,6 +386,43 @@ export default function App() {
 
   const handleDeleteMemory = (id: string) => {
     setMemories(memories.filter(m => m.id !== id));
+  };
+
+  const handleAddWorkflowNode = (nodeLabel: string, nodeType: string, config: any) => {
+    setWorkflows(prev => prev.map((w, idx) => {
+      if (idx === 0) {
+        const lastNode = w.nodes[w.nodes.length - 1];
+        const nextId = 'node-' + (w.nodes.length + 1) + '-' + Math.random().toString(36).substring(2, 5);
+        const newNode: WorkflowNode = {
+          id: nextId,
+          type: (nodeType as any) || 'api',
+          label: nodeLabel,
+          status: 'idle',
+          config: config || {},
+          position: {
+            x: lastNode ? lastNode.position.x + 180 : 150,
+            y: lastNode ? lastNode.position.y : 120
+          }
+        };
+
+        const newEdges = [...w.edges];
+        if (lastNode) {
+          newEdges.push({
+            id: `edge-${lastNode.id}-${newNode.id}`,
+            source: lastNode.id,
+            target: newNode.id,
+            animated: true
+          });
+        }
+
+        return {
+          ...w,
+          nodes: [...w.nodes, newNode],
+          edges: newEdges
+        };
+      }
+      return w;
+    }));
   };
 
   // Connect integration marketplace toggle
@@ -546,6 +600,14 @@ export default function App() {
               onRunWorkflow={handleRunWorkflow}
               isExecutingWorkflowId={isExecutingWorkflowId}
               workflowOutputs={workflowOutputs}
+              onUpdateWorkflow={(updatedNodes, updatedEdges) => {
+                setWorkflows(prev => prev.map(w => {
+                  if (w.id === workflows[0].id) {
+                    return { ...w, nodes: updatedNodes, edges: updatedEdges };
+                  }
+                  return w;
+                }));
+              }}
             />
           )}
 
@@ -599,6 +661,8 @@ export default function App() {
             <CopilotWorkspace 
               apiConnected={apiConnected}
               openaiConnected={openaiConnected}
+              onAddMemory={handleAddMemory}
+              onAddWorkflowNode={handleAddWorkflowNode}
               onAddTelemetryLog={(message, type = 'info') => {
                 const act = {
                   id: 'act-copilot-' + Date.now(),

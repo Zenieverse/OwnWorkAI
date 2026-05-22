@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { WorkflowNode, WorkflowEdge } from '../types';
 import { Network, Plus, Zap, Cpu, Terminal, Play, Settings, RefreshCw, Layers, Sliders, ChevronDown } from 'lucide-react';
 
@@ -14,13 +14,15 @@ interface WorkflowBuilderProps {
   onRunWorkflow: (id: string) => void;
   isExecutingWorkflowId: string | null;
   workflowOutputs: string[];
+  onUpdateWorkflow?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
 }
 
 export default function WorkflowBuilder({
   workflow,
   onRunWorkflow,
   isExecutingWorkflowId,
-  workflowOutputs
+  workflowOutputs,
+  onUpdateWorkflow
 }: WorkflowBuilderProps) {
   
   const [nodes, setNodes] = useState<WorkflowNode[]>(workflow.nodes);
@@ -30,32 +32,69 @@ export default function WorkflowBuilder({
   // Form states for changing node properties
   const [nodeName, setNodeName] = useState('');
   const [nodeValue, setNodeValue] = useState('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Sync state with incoming prop references (e.g., when switching tabs or workflows)
+  useEffect(() => {
+    setNodes(workflow.nodes);
+    setEdges(workflow.edges);
+    // Find previously selected node, or fallback to first
+    const activeNode = workflow.nodes.find(n => n.id === selectedNodeId) || workflow.nodes[0];
+    if (activeNode) {
+      setSelectedNodeId(activeNode.id);
+      setNodeName(activeNode.label);
+      setNodeValue(activeNode.config ? JSON.stringify(activeNode.config, null, 2) : '{}');
+    } else {
+      setSelectedNodeId(null);
+      setNodeName('');
+      setNodeValue('');
+    }
+  }, [workflow]);
 
   const handleNodeClick = (node: WorkflowNode) => {
     setSelectedNodeId(node.id);
     setNodeName(node.label);
     setNodeValue(node.config ? JSON.stringify(node.config, null, 2) : '{}');
+    setFeedback(null);
   };
 
   const handleUpdateNode = () => {
     if (!selectedNodeId) return;
-    setNodes(prev => prev.map(n => {
+    let isJsonValid = true;
+    let parsedConfig = {};
+    
+    try {
+      parsedConfig = JSON.parse(nodeValue);
+    } catch (e) {
+      isJsonValid = false;
+    }
+
+    const updatedNodes = nodes.map(n => {
       if (n.id === selectedNodeId) {
-        try {
-          return {
-            ...n,
-            label: nodeName,
-            config: JSON.parse(nodeValue)
-          };
-        } catch (e) {
-          return {
-            ...n,
-            label: nodeName
-          };
-        }
+        return {
+          ...n,
+          label: nodeName,
+          config: isJsonValid ? parsedConfig : n.config
+        };
       }
       return n;
-    }));
+    });
+
+    setNodes(updatedNodes);
+
+    if (onUpdateWorkflow) {
+      onUpdateWorkflow(updatedNodes, edges);
+    }
+
+    if (isJsonValid) {
+      setFeedback({ type: 'success', message: 'Parameters applied successfully!' });
+    } else {
+      setFeedback({ type: 'error', message: 'Warning: Invalid JSON configuration. Node label updated, but config JSON was skipped.' });
+    }
+
+    setTimeout(() => {
+      setFeedback(null);
+    }, 4000);
   };
 
   const handleCreateNode = (type: any) => {
@@ -74,7 +113,8 @@ export default function WorkflowBuilder({
       }
     };
 
-    setNodes([...nodes, newNode]);
+    const newNodes = [...nodes, newNode];
+    let newEdges = edges;
 
     if (lastNode) {
       const newEdge: WorkflowEdge = {
@@ -83,10 +123,19 @@ export default function WorkflowBuilder({
         target: nextId,
         animated: true
       };
-      setEdges([...edges, newEdge]);
+      newEdges = [...edges, newEdge];
     }
 
+    setNodes(newNodes);
+    setEdges(newEdges);
     setSelectedNodeId(newNode.id);
+    setNodeName(newNode.label);
+    setNodeValue(JSON.stringify(newNode.config, null, 2));
+    setFeedback(null);
+
+    if (onUpdateWorkflow) {
+      onUpdateWorkflow(newNodes, newEdges);
+    }
   };
 
   const isSelectedActive = isExecutingWorkflowId === workflow.id;
@@ -241,6 +290,16 @@ export default function WorkflowBuilder({
                   className="w-full bg-[#050608] border border-white/[0.06] rounded p-2 text-xs text-indigo-300 font-mono outline-none focus:border-blue-500"
                 />
               </div>
+
+              {feedback && (
+                <div className={`p-2.5 rounded text-[10px] font-mono leading-relaxed ${
+                  feedback.type === 'success' 
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}>
+                  {feedback.message}
+                </div>
+              )}
 
               <button
                 onClick={handleUpdateNode}
