@@ -1,0 +1,6 @@
+{
+  "name": "OwnWorks",
+  "description": "Production-grade AI workforce operating system. Build, orchestrate, and deploy autonomous AI agents and workflows locally or in the cloud.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
